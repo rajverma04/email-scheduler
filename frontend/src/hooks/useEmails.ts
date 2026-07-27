@@ -13,8 +13,9 @@ export const useEmails = (params: UseEmailsParams) => {
   return useQuery({
     queryKey: ['emails', params],
     queryFn: () => getEmails(params),
-    staleTime: 5 * 60 * 1000,
-    refetchOnMount: false,
+    staleTime: 2000,
+    refetchOnMount: 'always',
+    refetchInterval: 3000,
   });
 };
 
@@ -23,8 +24,9 @@ export const useEmailDetail = (id?: string) => {
     queryKey: ['email', id],
     queryFn: () => getEmailById(id!),
     enabled: !!id,
-    staleTime: 5 * 60 * 1000,
-    refetchOnMount: false,
+    staleTime: 2000,
+    refetchOnMount: 'always',
+    refetchInterval: 3000,
   });
 };
 

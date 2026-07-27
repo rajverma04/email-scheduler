@@ -19,8 +19,8 @@ export const useSenders = () => {
   return useQuery({
     queryKey: ['senders'],
     queryFn: getSenders,
-    staleTime: 5 * 60 * 1000,
-    refetchOnMount: false,
+    staleTime: 10000,
+    refetchOnMount: 'always',
   });
 };
 

@@ -5,7 +5,8 @@ export const useDashboard = () => {
   return useQuery({
     queryKey: ['dashboard', 'stats'],
     queryFn: getDashboardStats,
-    staleTime: 5 * 60 * 1000,
-    refetchOnMount: false,
+    staleTime: 2000,
+    refetchOnMount: 'always',
+    refetchInterval: 5000,
   });
 };
