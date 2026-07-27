@@ -7,16 +7,15 @@ import { useSenders } from '@/hooks/useSenders';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
-import { 
-  ArrowLeft, Paperclip, Clock, Calendar as CalendarIcon, Undo2, Redo2, 
-  Type, Bold, Italic, Underline, AlignLeft, List, ListOrdered, 
-  Quote, Link as LinkIcon, Strikethrough, Upload, X 
-} from 'lucide-react';
+import { ArrowLeft, Paperclip, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
-import Papa from 'papaparse';
+
+import { SendLaterModal } from './components/SendLaterModal';
+import { RecipientInput } from './components/RecipientInput';
+import { EmailRichEditor, type AttachmentItem } from './components/EmailRichEditor';
 
 const scheduleSchema = z.object({
   senderId: z.string().min(1, 'Please select a sender'),
@@ -30,19 +29,11 @@ const scheduleSchema = z.object({
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
-export interface AttachmentItem {
-  id: string;
-  name: string;
-  url: string;
-  type: string;
-  size: string;
-}
-
 export const ScheduleForm = () => {
   const navigate = useNavigate();
   const editorRef = useRef<HTMLDivElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
-  const csvInputRef = useRef<HTMLInputElement>(null);
+
   const { data: senders, isLoading: loadingSenders } = useSenders();
   const { mutate: scheduleEmail, isPending } = useScheduleEmail();
 
@@ -68,53 +59,19 @@ export const ScheduleForm = () => {
   const recipients = watch('recipients');
   const selectedSenderId = watch('senderId');
 
-  const selectedSender = senders?.find(s => s.id === selectedSenderId);
+  const selectedSender = senders?.find((s) => s.id === selectedSenderId);
 
-  const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({});
-
-  // Auto-select first available sender if none is selected
   useEffect(() => {
     if (senders && senders.length > 0 && !selectedSenderId) {
       setValue('senderId', senders[0].id, { shouldValidate: true });
     }
   }, [senders, selectedSenderId, setValue]);
 
-  const updateActiveFormats = () => {
-    try {
-      setActiveFormats({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline'),
-        strikeThrough: document.queryCommandState('strikeThrough'),
-        insertOrderedList: document.queryCommandState('insertOrderedList'),
-        insertUnorderedList: document.queryCommandState('insertUnorderedList'),
-        justifyLeft: document.queryCommandState('justifyLeft'),
-      });
-    } catch {
-      // Ignore queryCommandState errors
-    }
-  };
-
-  const formatCommand = (command: string, value: string | null = null) => {
-    document.execCommand(command, false, value ?? undefined);
-    if (editorRef.current) {
-      setValue('body', editorRef.current.innerHTML, { shouldValidate: true });
-    }
-    updateActiveFormats();
-  };
-
-  const handleLinkPrompt = () => {
-    const url = prompt('Enter URL link:');
-    if (url) {
-      formatCommand('createLink', url);
-    }
-  };
-
   const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const newItems: AttachmentItem[] = Array.from(files).map(file => ({
+    const newItems: AttachmentItem[] = Array.from(files).map((file) => ({
       id: Math.random().toString(36).substring(2, 9),
       name: file.name,
       url: URL.createObjectURL(file),
@@ -122,26 +79,25 @@ export const ScheduleForm = () => {
       size: (file.size / 1024).toFixed(1) + ' KB',
     }));
 
-    setAttachments(prev => [...prev, ...newItems]);
+    setAttachments((prev) => [...prev, ...newItems]);
     toast.success(`Attached ${newItems.length} file(s)`);
     if (e.target) e.target.value = '';
   };
 
   const removeAttachment = (idToRemove: string) => {
-    setAttachments(prev => prev.filter(item => item.id !== idToRemove));
+    setAttachments((prev) => prev.filter((item) => item.id !== idToRemove));
   };
 
   const onSubmit = (data: ScheduleFormValues) => {
     let currentRecipients = [...data.recipients];
     
-    // Auto-add text typed in the recipient input field if valid email
     if (manualEmail.trim()) {
       const emailToAdd = manualEmail.trim().toLowerCase();
       if (!/^\S+@\S+\.\S+$/.test(emailToAdd)) {
         toast.error('Invalid email address in recipient input field');
         return;
       }
-      if (!currentRecipients.some(r => r.email.toLowerCase() === emailToAdd)) {
+      if (!currentRecipients.some((r) => r.email.toLowerCase() === emailToAdd)) {
         currentRecipients.push({ email: emailToAdd });
         setValue('recipients', currentRecipients, { shouldValidate: true });
         setManualEmail('');
@@ -184,76 +140,6 @@ export const ScheduleForm = () => {
       const firstError = formErrors[errorKeys[0]];
       toast.error(firstError?.message || 'Please fill in all required fields');
     }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const importEmails = (values: string[]) => {
-      const parsedEmails = values
-        .map((value) => value.trim().toLowerCase())
-        .filter((email) => /^\S+@\S+\.\S+$/.test(email));
-
-      if (parsedEmails.length === 0) {
-        toast.error('No valid email addresses were found in the selected file');
-        return;
-      }
-
-      const currentRecipients = watch('recipients');
-      const newRecipients = parsedEmails.map((email) => ({ email }));
-      const merged = [...currentRecipients, ...newRecipients];
-      const unique = Array.from(new Map(merged.map((item) => [item.email, item])).values());
-      setValue('recipients', unique, { shouldValidate: true });
-      toast.success(`Detected ${unique.length} unique email address${unique.length === 1 ? '' : 'es'}`);
-    };
-
-    if (file.name.toLowerCase().endsWith('.txt') || file.type === 'text/plain') {
-      file.text().then((text) => importEmails(text.split(/[\s,;]+/)));
-    } else {
-      Papa.parse<string[]>(file, {
-        header: false,
-        skipEmptyLines: true,
-        complete: (results) => importEmails(results.data.flatMap((row) => row)),
-      });
-    }
-    if (e.target) e.target.value = '';
-  };
-
-  const addManualEmail = () => {
-    if (!manualEmail) return;
-    if (!/^\S+@\S+\.\S+$/.test(manualEmail)) {
-      toast.error('Invalid email address');
-      return;
-    }
-    const currentRecipients = watch('recipients');
-    if (currentRecipients.some(r => r.email === manualEmail)) {
-      toast.error('Email already added');
-      return;
-    }
-    setValue('recipients', [...currentRecipients, { email: manualEmail }], { shouldValidate: true });
-    setManualEmail('');
-  };
-
-  const removeRecipient = (emailToRemove: string) => {
-    const currentRecipients = watch('recipients');
-    setValue('recipients', currentRecipients.filter(r => r.email !== emailToRemove), { shouldValidate: true });
-  };
-
-  const setPresetTime = (preset: string) => {
-    let target = dayjs();
-    if (preset === 'tomorrow') {
-      target = target.add(1, 'day').hour(9).minute(0);
-    } else if (preset === '10am') {
-      target = target.add(1, 'day').hour(10).minute(0);
-    } else if (preset === '11am') {
-      target = target.add(1, 'day').hour(11).minute(0);
-    } else if (preset === '3pm') {
-      target = target.add(1, 'day').hour(15).minute(0);
-    }
-    const formatted = target.format('YYYY-MM-DDTHH:mm');
-    setScheduledDateTime(formatted);
-    setValue('scheduleTime', formatted);
   };
 
   return (
@@ -345,7 +231,7 @@ export const ScheduleForm = () => {
                 </span>
               </SelectTrigger>
               <SelectContent>
-                {senders?.map(sender => (
+                {senders?.map((sender) => (
                   <SelectItem key={sender.id} value={sender.id}>
                     {sender.senderEmail} ({sender.senderName})
                   </SelectItem>
@@ -357,45 +243,13 @@ export const ScheduleForm = () => {
         </div>
 
         {/* To Field */}
-        <div className="space-y-1 border-b border-gray-100 dark:border-gray-800 pb-3">
-          <div className="flex items-center gap-4">
-            <span className="w-16 text-sm font-semibold text-gray-400">To</span>
-            <div className="flex-1 flex flex-wrap items-center gap-2">
-              {recipients.map((r, i) => (
-                <span key={i} className="bg-emerald-50 text-[#00A859] border border-emerald-200 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                  {r.email}
-                  <button type="button" onClick={() => removeRecipient(r.email)} className="hover:text-rose-600">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-              <Input 
-                placeholder="recipient@example.com"
-                value={manualEmail}
-                onChange={(e) => setManualEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addManualEmail())}
-                className="border-none shadow-none focus-visible:ring-0 text-sm p-0 placeholder:text-gray-300 flex-1 min-w-[200px]"
-              />
-            </div>
-
-            <button 
-              type="button"
-              onClick={() => csvInputRef.current?.click()}
-              className="flex items-center gap-1.5 text-[#00A859] hover:text-[#00924D] font-semibold text-xs shrink-0 ml-auto transition-colors"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Upload List ({recipients.length})
-            </button>
-            <input 
-              ref={csvInputRef} 
-              type="file" 
-              accept=".csv,.txt,text/plain" 
-              className="hidden" 
-              onChange={handleFileUpload} 
-            />
-          </div>
-          {errors.recipients && <p className="text-xs text-rose-500 pl-20">{errors.recipients.message}</p>}
-        </div>
+        <RecipientInput 
+          recipients={recipients}
+          manualEmail={manualEmail}
+          setManualEmail={setManualEmail}
+          setValue={setValue}
+          error={errors.recipients?.message}
+        />
 
         {/* Subject Field */}
         <div className="space-y-1 border-b border-gray-100 dark:border-gray-800 pb-3">
@@ -433,256 +287,24 @@ export const ScheduleForm = () => {
           </div>
         </div>
 
-        {/* Rich Text Editor Body matching Figma Gray Container */}
-        <div className="bg-[#F8FAFC] dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 min-h-[380px] space-y-4">
-          
-          {/* Floating White Pill Formatting Toolbar */}
-          <div className="bg-white dark:bg-gray-900 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 px-4 py-1.5 flex items-center gap-1 text-gray-500 text-xs w-fit mx-auto">
-            <button 
-              type="button" 
-              onClick={() => formatCommand('undo')} 
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 transition-colors" 
-              title="Undo"
-            >
-              <Undo2 className="w-3.5 h-3.5" />
-            </button>
-            <button 
-              type="button" 
-              onClick={() => formatCommand('redo')} 
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 transition-colors" 
-              title="Redo"
-            >
-              <Redo2 className="w-3.5 h-3.5" />
-            </button>
-
-            <span className="h-4 w-px bg-gray-200 dark:bg-gray-800 mx-1" />
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('fontSize', '4')} 
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 flex items-center gap-0.5 transition-colors" 
-              title="Font Size"
-            >
-              <Type className="w-3.5 h-3.5" /><span className="text-[10px]">Tт</span>
-            </button>
-
-            <span className="h-4 w-px bg-gray-200 dark:bg-gray-800 mx-1" />
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('bold')} 
-              className={cn("p-1.5 rounded-full transition-colors font-bold", activeFormats.bold ? "bg-[#EAF5ED] text-[#00A859]" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800")} 
-              title="Bold"
-            >
-              <Bold className="w-3.5 h-3.5" />
-            </button>
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('italic')} 
-              className={cn("p-1.5 rounded-full transition-colors italic", activeFormats.italic ? "bg-[#EAF5ED] text-[#00A859]" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800")} 
-              title="Italic"
-            >
-              <Italic className="w-3.5 h-3.5" />
-            </button>
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('underline')} 
-              className={cn("p-1.5 rounded-full transition-colors underline", activeFormats.underline ? "bg-[#EAF5ED] text-[#00A859]" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800")} 
-              title="Underline"
-            >
-              <Underline className="w-3.5 h-3.5" />
-            </button>
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('strikeThrough')} 
-              className={cn("p-1.5 rounded-full transition-colors line-through", activeFormats.strikeThrough ? "bg-[#EAF5ED] text-[#00A859]" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800")} 
-              title="Strikethrough"
-            >
-              <Strikethrough className="w-3.5 h-3.5" />
-            </button>
-
-            <span className="h-4 w-px bg-gray-200 dark:bg-gray-800 mx-1" />
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('justifyLeft')} 
-              className={cn("p-1.5 rounded-full transition-colors", activeFormats.justifyLeft ? "bg-[#EAF5ED] text-[#00A859]" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800")} 
-              title="Align Left"
-            >
-              <AlignLeft className="w-3.5 h-3.5" />
-            </button>
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('insertOrderedList')} 
-              className={cn("p-1.5 rounded-full transition-colors", activeFormats.insertOrderedList ? "bg-[#EAF5ED] text-[#00A859]" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800")} 
-              title="Numbered List"
-            >
-              <ListOrdered className="w-3.5 h-3.5" />
-            </button>
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('insertUnorderedList')} 
-              className={cn("p-1.5 rounded-full transition-colors", activeFormats.insertUnorderedList ? "bg-[#EAF5ED] text-[#00A859]" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800")} 
-              title="Bullet List"
-            >
-              <List className="w-3.5 h-3.5" />
-            </button>
-
-            <button 
-              type="button" 
-              onClick={() => formatCommand('formatBlock', 'blockquote')} 
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 transition-colors" 
-              title="Quote"
-            >
-              <Quote className="w-3.5 h-3.5" />
-            </button>
-
-            <button 
-              type="button" 
-              onClick={handleLinkPrompt} 
-              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 transition-colors" 
-              title="Insert Link"
-            >
-              <LinkIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Interactive contentEditable Rich Text Area */}
-          <div 
-            ref={editorRef}
-            contentEditable
-            onInput={() => {
-              if (editorRef.current) {
-                setValue('body', editorRef.current.innerHTML, { shouldValidate: true });
-              }
-              updateActiveFormats();
-            }}
-            onKeyUp={updateActiveFormats}
-            onMouseUp={updateActiveFormats}
-            onClick={updateActiveFormats}
-            data-placeholder="Type Your Reply..."
-            className="w-full min-h-[160px] focus:outline-none text-sm text-gray-800 dark:text-gray-200 p-2 border-none rounded-xl empty:before:content-[attr(data-placeholder)] empty:before:text-gray-300"
-          />
-
-          {/* User Uploaded System Attachment Thumbnail Cards */}
-          {attachments.length > 0 && (
-            <div className="pt-3 flex flex-wrap gap-3 border-t border-gray-200/60 dark:border-gray-700/60">
-              {attachments.map(att => (
-                <div key={att.id} className="relative group">
-                  {att.type.startsWith('image/') ? (
-                    <div className="w-36 h-24 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm relative">
-                      <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                      <button 
-                        type="button" 
-                        onClick={() => removeAttachment(att.id)}
-                        className="absolute top-1.5 right-1.5 bg-black/60 hover:bg-rose-600 text-white rounded-full p-1 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 flex items-center gap-2 shadow-sm">
-                      <Paperclip className="w-4 h-4 text-[#00A859]" />
-                      <div className="text-xs max-w-[120px] truncate">
-                        <div className="font-medium text-gray-800 dark:text-gray-200 truncate">{att.name}</div>
-                        <div className="text-[10px] text-gray-400">{att.size}</div>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => removeAttachment(att.id)}
-                        className="text-gray-400 hover:text-rose-500 p-1"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {errors.body && <p className="text-xs text-rose-500">{errors.body.message}</p>}
-        </div>
+        {/* Rich Text Editor Body */}
+        <EmailRichEditor 
+          editorRef={editorRef}
+          setValue={setValue}
+          attachments={attachments}
+          removeAttachment={removeAttachment}
+          error={errors.body?.message}
+        />
       </form>
 
-      {/* Send Later Overlay Modal matching Figma */}
+      {/* Send Later Overlay Modal */}
       {showSendLater && (
-        <div className="absolute top-16 right-8 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 shadow-2xl z-50 space-y-4 animate-in fade-in zoom-in-95">
-          <h3 className="font-bold text-sm text-gray-900 dark:text-white">
-            Send Later
-          </h3>
-
-          <div className="relative">
-            <Input 
-              type="datetime-local" 
-              value={scheduledDateTime}
-              onChange={(e) => {
-                const val = e.target.value;
-                setScheduledDateTime(val);
-                setValue('scheduleTime', val);
-              }}
-              className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-xs px-3 py-2 pr-8 text-gray-800 dark:text-gray-200"
-            />
-            <CalendarIcon className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
-          </div>
-
-          {/* Quick Presets */}
-          <div className="space-y-1.5 pt-1 text-xs text-gray-500 dark:text-gray-400">
-            <div 
-              onClick={() => setPresetTime('tomorrow')} 
-              className="px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer font-medium hover:text-gray-900"
-            >
-              Tomorrow
-            </div>
-            <div 
-              onClick={() => setPresetTime('10am')} 
-              className="px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer hover:text-gray-900"
-            >
-              Tomorrow, 10:00 AM
-            </div>
-            <div 
-              onClick={() => setPresetTime('11am')} 
-              className="px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer hover:text-gray-900"
-            >
-              Tomorrow, 11:00 AM
-            </div>
-            <div 
-              onClick={() => setPresetTime('3pm')} 
-              className="px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer hover:text-gray-900"
-            >
-              Tomorrow, 3:00 PM
-            </div>
-          </div>
-
-          {/* Modal Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-            <button 
-              type="button" 
-              onClick={() => setShowSendLater(false)}
-              className="text-xs text-gray-500 hover:text-gray-800 font-medium"
-            >
-              Cancel
-            </button>
-            <Button 
-              type="button"
-              onClick={() => {
-                if (scheduledDateTime) {
-                  setValue('scheduleTime', scheduledDateTime);
-                  toast.success(`Scheduled for ${dayjs(scheduledDateTime).format('MMM DD, YYYY h:mm A')}`);
-                }
-                setShowSendLater(false);
-              }}
-              className="border border-[#00A859] hover:bg-emerald-50 text-[#00A859] bg-transparent text-xs font-semibold px-4 py-1.5 rounded-full shadow-none"
-            >
-              Done
-            </Button>
-          </div>
-        </div>
+        <SendLaterModal 
+          scheduledDateTime={scheduledDateTime}
+          setScheduledDateTime={setScheduledDateTime}
+          setValue={setValue}
+          onClose={() => setShowSendLater(false)}
+        />
       )}
     </div>
   );
