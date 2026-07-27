@@ -7,6 +7,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { RotateCcw, XCircle, Search, Clock, SlidersHorizontal, RefreshCw, Star } from 'lucide-react';
 import dayjs from 'dayjs';
 
+const STRIP_HTML_REGEX = /<[^>]*>?/gm;
+
+const stripHtml = (html: string) => {
+  return html ? html.replace(STRIP_HTML_REGEX, '').trim() : '';
+};
+
 export const EmailTable = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -38,10 +44,6 @@ export const EmailTable = () => {
   const toggleStar = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setStarredEmails(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const stripHtml = (html: string) => {
-    return html ? html.replace(/<[^>]*>?/gm, '').trim() : '';
   };
 
   return (

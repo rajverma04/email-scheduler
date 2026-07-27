@@ -3,10 +3,6 @@ import { Prisma, EmailSchedule, EmailStatus } from "@prisma/client";
 import { redisConnection } from "../config/redis";
 
 export class EmailRepository {
-  async createMany(data: Prisma.EmailScheduleCreateManyInput[]): Promise<void> {
-    await prisma.emailSchedule.createMany({ data });
-  }
-
   async create(data: Prisma.EmailScheduleUncheckedCreateInput): Promise<EmailSchedule> {
     return prisma.emailSchedule.create({ data });
   }
@@ -42,14 +38,6 @@ export class EmailRepository {
 
   async update(id: string, data: Prisma.EmailScheduleUpdateInput): Promise<EmailSchedule> {
     return prisma.emailSchedule.update({ where: { id }, data });
-  }
-
-  async updateStatus(id: string, currentStatus: string, newStatus: string): Promise<boolean> {
-    const result = await prisma.emailSchedule.updateMany({
-      where: { id, status: currentStatus as any },
-      data: { status: newStatus as any },
-    });
-    return result.count > 0;
   }
 
   async claimForSending(id: string, staleBefore: Date): Promise<boolean> {

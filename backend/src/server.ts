@@ -26,12 +26,19 @@ app.use(cors({
 }));
 app.use(helmet());
 
-app.get("/health", (_req, res) => res.json({ status: "OK", service: "api" }));
 app.use("/api/auth", authRoutes);
 app.use("/api/senders", senderRoutes);
 app.use("/api/emails", emailRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/health", healthRoutes);
+
+// Global Error Handling Middleware
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("Unhandled API Error:", err?.stack || err?.message || err);
+  const status = err?.status || err?.statusCode || 500;
+  const message = err?.message || "Internal Server Error";
+  res.status(status).json({ error: message });
+});
 
 if (require.main === module) {
   const server = app.listen(port, async () => {

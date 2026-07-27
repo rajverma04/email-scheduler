@@ -38,7 +38,7 @@ export class EmailService {
     });
 
     const createdEmails = await emailRepository.createScheduledWithOutbox(emailRecords);
-    await outboxService.publishPending();
+    void outboxService.publishPending().catch((err) => console.error("Outbox publish error:", err));
 
     await emailRepository.invalidateUserCache(userId);
 

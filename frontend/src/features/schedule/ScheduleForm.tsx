@@ -90,7 +90,7 @@ export const ScheduleForm = () => {
 
   const onSubmit = (data: ScheduleFormValues) => {
     let currentRecipients = [...data.recipients];
-    
+
     if (manualEmail.trim()) {
       const emailToAdd = manualEmail.trim().toLowerCase();
       if (!/^\S+@\S+\.\S+$/.test(emailToAdd)) {
@@ -144,13 +144,13 @@ export const ScheduleForm = () => {
 
   return (
     <div className="max-w-[1100px] mx-auto bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm p-6 sm:p-8 space-y-6 relative">
-      
+
       {/* Header Bar */}
       <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-5">
         <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="rounded-full text-gray-500 hover:bg-gray-100"
             onClick={() => navigate('/emails')}
           >
@@ -162,8 +162,8 @@ export const ScheduleForm = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => attachmentInputRef.current?.click()}
             className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors relative"
             title="Attach Files"
@@ -175,18 +175,18 @@ export const ScheduleForm = () => {
               </span>
             )}
           </button>
-          <input 
-            ref={attachmentInputRef} 
-            type="file" 
-            multiple 
-            className="hidden" 
-            onChange={handleAttachmentUpload} 
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleAttachmentUpload}
           />
 
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            type="button" 
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
             className={cn(
               "rounded-full text-gray-400 hover:text-gray-600 transition-colors relative",
               scheduledDateTime && "text-[#00A859] bg-emerald-50 border border-emerald-200"
@@ -200,14 +200,14 @@ export const ScheduleForm = () => {
             )}
           </Button>
 
-          <Button 
+          <Button
             type="button"
             onClick={handleSubmit(onSubmit, onError)}
             disabled={isPending}
             className="border-2 border-[#00A859] hover:bg-emerald-50 text-[#00A859] bg-transparent font-medium px-5 py-2 rounded-full transition-colors text-sm shadow-none"
           >
-            {scheduledDateTime 
-              ? `Send Later (${dayjs(scheduledDateTime).format('MMM DD, h:mm A')})` 
+            {scheduledDateTime
+              ? `Send Later (${dayjs(scheduledDateTime).format('MMM DD, h:mm A')})`
               : 'Send'}
           </Button>
         </div>
@@ -215,7 +215,7 @@ export const ScheduleForm = () => {
 
       {/* Form Fields */}
       <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-4">
-        
+
         {/* From Field */}
         <div className="flex items-center gap-4">
           <span className="w-16 text-sm font-semibold text-gray-400">From</span>
@@ -223,10 +223,10 @@ export const ScheduleForm = () => {
             <Select value={selectedSenderId} onValueChange={(val: string | null) => val && setValue('senderId', val, { shouldValidate: true })}>
               <SelectTrigger className="bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm font-medium text-gray-800 dark:text-gray-200">
                 <span>
-                  {loadingSenders 
-                    ? "Loading..." 
-                    : selectedSender 
-                      ? `${selectedSender.senderEmail} (${selectedSender.senderName})` 
+                  {loadingSenders
+                    ? "Loading..."
+                    : selectedSender
+                      ? `${selectedSender.senderEmail} (${selectedSender.senderName})`
                       : "Select sender email"}
                 </span>
               </SelectTrigger>
@@ -243,7 +243,7 @@ export const ScheduleForm = () => {
         </div>
 
         {/* To Field */}
-        <RecipientInput 
+        <RecipientInput
           recipients={recipients}
           manualEmail={manualEmail}
           setManualEmail={setManualEmail}
@@ -255,8 +255,8 @@ export const ScheduleForm = () => {
         <div className="space-y-1 border-b border-gray-100 dark:border-gray-800 pb-3">
           <div className="flex items-center gap-4">
             <span className="w-16 text-sm font-semibold text-gray-400">Subject</span>
-            <Input 
-              placeholder="Subject" 
+            <Input
+              placeholder="Subject"
               {...register('subject')}
               className="border-none shadow-none focus-visible:ring-0 text-sm p-0 placeholder:text-gray-300 flex-1"
             />
@@ -268,27 +268,27 @@ export const ScheduleForm = () => {
         <div className="flex items-center gap-6 text-xs text-gray-400 pt-1 pb-3 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <span>Delay between emails (seconds)</span>
-            <Input 
-              type="number" 
-              defaultValue={2} 
+            <Input
+              type="number"
+              defaultValue={2}
               {...register('delayBetweenEmails', { valueAsNumber: true })}
-              className="w-14 h-8 text-center bg-gray-50 dark:bg-gray-800 border-none rounded-lg text-xs" 
+              className="w-14 h-8 text-center bg-gray-50 dark:bg-gray-800 border-none rounded-lg text-xs"
             />
           </div>
 
           <div className="flex items-center gap-2">
             <span>Hourly Limit (max emails/hour)</span>
-            <Input 
-              type="number" 
-              defaultValue={200} 
+            <Input
+              type="number"
+              defaultValue={200}
               {...register('hourlyLimit', { valueAsNumber: true })}
-              className="w-14 h-8 text-center bg-gray-50 dark:bg-gray-800 border-none rounded-lg text-xs" 
+              className="w-14 h-8 text-center bg-gray-50 dark:bg-gray-800 border-none rounded-lg text-xs"
             />
           </div>
         </div>
 
         {/* Rich Text Editor Body */}
-        <EmailRichEditor 
+        <EmailRichEditor
           editorRef={editorRef}
           setValue={setValue}
           attachments={attachments}
@@ -299,7 +299,7 @@ export const ScheduleForm = () => {
 
       {/* Send Later Overlay Modal */}
       {showSendLater && (
-        <SendLaterModal 
+        <SendLaterModal
           scheduledDateTime={scheduledDateTime}
           setScheduledDateTime={setScheduledDateTime}
           setValue={setValue}
