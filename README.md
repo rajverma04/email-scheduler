@@ -11,8 +11,8 @@ PostgreSQL is the source of truth. A transactional outbox makes the database wri
 ## Scheduling and rate limits
 
 - Every recipient receives a dedicated delayed BullMQ job.
-- The compose form sets a start time, delay between emails, and hourly limit. The delay is expressed in seconds, defaults to **2 seconds**, and is enforced per sender in Redis across worker instances.
-- A Redis Lua script atomically applies the sender's hourly limit and minimum-send interval. A throttled job is moved back to BullMQ's delayed state; it is never dropped.
+- **Minimum delay between sends**: Enforces a minimum delay between individual email sends (default: **min 2 seconds between sends** to mimic provider throttling). This delay is enforced per sender in Redis using an atomic Lua script across all worker instances.
+- A Redis Lua script atomically applies the sender's hourly limit (`MAX_EMAILS_PER_HOUR_PER_SENDER`) and minimum-send interval. A throttled job is moved back to BullMQ's delayed state; it is never dropped.
 - `WORKER_CONCURRENCY` configures the number of simultaneous BullMQ jobs per worker (default: `5`).
 - The worker atomically claims `QUEUED → PROCESSING`, uses a stale-processing lease for crash recovery, retries transient SMTP failures with exponential BullMQ backoff, and marks an email `FAILED` only on the final attempt.
 
@@ -37,7 +37,7 @@ SMTP has an unavoidable at-least-once boundary: if an SMTP server accepts a mess
    npm run dev
    ```
 
-4. Sign in with Google. Create one or more sender identities using credentials from [Ethereal Email](https://ethereal.email/); the required SMTP host is `smtp.ethereal.email`.
+4. Sign in with Google. Create one or more sender identities using credentials from **Gmail (with Google App Password)**, **Outlook**, **Ethereal Email** (`smtp.ethereal.email`), or any custom SMTP server.
 
 ## Verification
 

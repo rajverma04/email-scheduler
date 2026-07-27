@@ -8,6 +8,12 @@ export class UserRepository {
     });
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    return prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+  }
+
   async create(data: Prisma.UserCreateInput): Promise<User> {
     return prisma.user.create({
       data,

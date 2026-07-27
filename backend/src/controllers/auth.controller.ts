@@ -20,6 +20,24 @@ export class AuthController {
     }
   }
 
+  async emailLogin(req: Request, res: Response) {
+    try {
+      const { email, password } = req.body;
+      const result = await authService.loginOrSignupWithEmail(email, password);
+
+      res.cookie("token", result.sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60 * 1000, // 1 day
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
   async googleAuthRedirect(req: Request, res: Response) {
     try {
       const clientId = process.env.GOOGLE_CLIENT_ID;

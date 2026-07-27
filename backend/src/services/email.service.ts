@@ -17,7 +17,8 @@ export class EmailService {
     const requestedStart = new Date(scheduledAt);
     const startAt = requestedStart.getTime() > Date.now() ? requestedStart : new Date();
     const minimumDelaySeconds = Math.max(1, delayBetweenEmails ?? 2);
-    const effectiveHourlyLimit = Math.max(1, hourlyLimit ?? sender.hourlyLimit);
+    const envDefaultLimit = Number(process.env.MAX_EMAILS_PER_HOUR_PER_SENDER || process.env.MAX_EMAILS_PER_HOUR || 200);
+    const effectiveHourlyLimit = Math.max(1, hourlyLimit ?? sender.hourlyLimit ?? envDefaultLimit);
     const uniqueRecipients: string[] = Array.from(
       new Set((recipients as string[]).map((recipient: string) => String(recipient).trim().toLowerCase()))
     );

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { API_BASE_URL } from '@/config/api.config';
 
 interface User {
   id: string;
@@ -24,8 +25,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       setAuth: (token, user) => set({ token, user, isAuthenticated: true }),
       logout: () => {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-        void fetch(`${baseUrl}/auth/logout`, {
+        void fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           credentials: 'include',
         }).finally(() => {
