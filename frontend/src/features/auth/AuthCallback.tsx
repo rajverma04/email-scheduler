@@ -1,19 +1,24 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 import api from '@/api/axios';
 
 export const AuthCallback = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setAuth = useAuthStore((state) => state.setAuth);
 
   useEffect(() => {
     let active = true;
-    api.get('/auth/profile')
+    const tokenFromUrl = searchParams.get('token');
+
+    const headers = tokenFromUrl ? { Authorization: `Bearer ${tokenFromUrl}` } : undefined;
+
+    api.get('/auth/profile', { headers })
       .then(({ data }) => {
         if (!active) return;
-        setAuth(null, data.user);
+        setAuth(tokenFromUrl || useAuthStore.getState().token, data.user);
         toast.success('Successfully logged in!');
         navigate('/dashboard', { replace: true });
       })
@@ -23,7 +28,7 @@ export const AuthCallback = () => {
         navigate('/login', { replace: true });
       });
     return () => { active = false; };
-  }, [navigate, setAuth]);
+  }, [navigate, searchParams, setAuth]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

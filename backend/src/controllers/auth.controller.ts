@@ -91,7 +91,7 @@ export class AuthController {
       });
 
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      res.redirect(`${frontendUrl}/auth/callback`);
+      res.redirect(`${frontendUrl}/auth/callback?token=${result.sessionToken}`);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
