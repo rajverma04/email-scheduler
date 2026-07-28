@@ -15,6 +15,9 @@ export class SmtpService {
           user: sender.smtpUser.trim(),
           pass: decrypt(sender.smtpPassword),
         },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 5000,
         tls: {
           rejectUnauthorized: false,
         },
@@ -29,6 +32,9 @@ export class SmtpService {
         user: sender.smtpUser.trim(),
         pass: decrypt(sender.smtpPassword),
       },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
       tls: {
         rejectUnauthorized: false,
       },
