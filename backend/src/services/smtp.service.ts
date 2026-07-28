@@ -1,6 +1,14 @@
 import nodemailer from "nodemailer";
+import dns from "dns";
 import { Sender } from "@prisma/client";
 import { decrypt } from "../utils/crypto";
+
+// Force IPv4 resolution on cloud providers without IPv6 network routing
+try {
+  dns.setDefaultResultOrder?.("ipv4first");
+} catch {
+  // Ignore if unsupported
+}
 
 export class SmtpService {
   private createTransport(sender: Sender) {
@@ -10,18 +18,21 @@ export class SmtpService {
 
     if (isGmail) {
       return nodemailer.createTransport({
-        service: "gmail",
+        host: "smtp.gmail.com",
+        port: sender.smtpPort || 465,
+        secure: isSecurePort,
         auth: {
           user: sender.smtpUser.trim(),
           pass: decrypt(sender.smtpPassword),
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 5000,
+        family: 4,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
         tls: {
           rejectUnauthorized: false,
         },
-      });
+      } as any);
     }
 
     return nodemailer.createTransport({
@@ -32,13 +43,14 @@ export class SmtpService {
         user: sender.smtpUser.trim(),
         pass: decrypt(sender.smtpPassword),
       },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 5000,
+      family: 4,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
       tls: {
         rejectUnauthorized: false,
       },
-    });
+    } as any);
   }
 
   async verifyConnection(sender: Sender): Promise<boolean> {
@@ -61,7 +73,7 @@ export class SmtpService {
 
       return {
         messageId: info.messageId,
-        previewUrl: nodemailer.getTestMessageUrl(info) || null,
+        previewUrl: nodemailer.getTestMessageUrl(info as any) || null,
       };
     } catch (error) {
       throw error;
