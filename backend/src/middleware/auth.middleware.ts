@@ -8,29 +8,37 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   try {
     let token: string | undefined;
 
-    // Check cookie first
-    if (req.cookies && req.cookies.token) {
+    // Check Bearer header first, then fallback to cookie
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    } else if (req.cookies && req.cookies.token) {
       token = req.cookies.token;
-    } else {
-      // Fallback to Bearer header
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.split(" ")[1];
-      }
     }
 
     if (!token) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-    const user = await userRepository.findById(decoded.userId);
-    if (!user) {
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (jwtErr) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    (req as any).user = user;
-    next();
+    try {
+      const user = await userRepository.findById(decoded.userId);
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      (req as any).user = user;
+      next();
+    } catch (dbErr) {
+      console.warn("Database lookup failed in requireAuth, attaching decoded JWT payload fallback:", dbErr);
+      (req as any).user = { id: decoded.userId };
+      next();
+    }
   } catch (error) {
     res.status(401).json({ error: "Unauthorized" });
   }

@@ -163,6 +163,32 @@ export class EmailRepository {
 
     return result;
   }
+
+  async recoverStuckProcessing(staleMs = 60000): Promise<number> {
+    const staleBefore = new Date(Date.now() - staleMs);
+    const stuck = await prisma.emailSchedule.findMany({
+      where: {
+        status: EmailStatus.PROCESSING,
+        updatedAt: { lt: staleBefore },
+      },
+    });
+
+    for (const email of stuck) {
+      await prisma.$transaction([
+        prisma.emailSchedule.update({
+          where: { id: email.id },
+          data: { status: EmailStatus.PENDING },
+        }),
+        prisma.emailOutbox.upsert({
+          where: { emailId: email.id },
+          create: { emailId: email.id },
+          update: {},
+        }),
+      ]);
+    }
+
+    return stuck.length;
+  }
 }
 
 export const emailRepository = new EmailRepository();

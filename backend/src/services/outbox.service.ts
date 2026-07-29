@@ -32,6 +32,7 @@ export class OutboxService {
 
   async recoverAndPublish(): Promise<number> {
     await outboxRepository.recoverUnpublished();
+    await emailRepository.recoverStuckProcessing();
     return this.publishPending();
   }
 }

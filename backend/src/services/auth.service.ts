@@ -42,7 +42,7 @@ export class AuthService {
     const user = await userRepository.upsertGoogleUser({ googleId, email, name, avatar });
 
     const sessionToken = jwt.sign({ userId: user.id }, JWT_SECRET, {
-      expiresIn: "1d",
+      expiresIn: "7d",
     });
 
     return { user, sessionToken };
@@ -76,7 +76,7 @@ export class AuthService {
     }
 
     const sessionToken = jwt.sign({ userId: user.id }, JWT_SECRET, {
-      expiresIn: "1d",
+      expiresIn: "7d",
     });
 
     return { user, sessionToken };

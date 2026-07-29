@@ -6,7 +6,7 @@ import { smtpService } from "./smtp.service";
 export class SenderService {
   async createSender(userId: string, data: Omit<Prisma.SenderUncheckedCreateInput, "userId">) {
     const encryptedPassword = data.smtpPassword ? encrypt(data.smtpPassword) : data.smtpPassword;
-    
+
     // Construct temporary Sender object for verification
     const tempSender = {
       ...data,
@@ -24,7 +24,7 @@ export class SenderService {
       if (data.smtpHost.toLowerCase().includes("gmail") && (errMsg.includes("Invalid login") || errMsg.includes("535") || errMsg.includes("Username and Password not accepted"))) {
         throw new Error("Gmail SMTP Auth failed: Please make sure you are using an App Password from your Google Account settings, not your regular Gmail password.");
       }
-      
+
       const isNetworkTimeout = errMsg.toLowerCase().includes("timeout") || errMsg.includes("ETIMEDOUT") || errMsg.includes("ENETUNREACH") || errMsg.includes("EHOSTUNREACH");
       if (isNetworkTimeout) {
         console.warn(`[SenderService] SMTP verification timed out due to cloud network restrictions. Proceeding with save: ${errMsg}`);
